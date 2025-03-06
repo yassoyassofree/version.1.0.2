@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management and Passcode Input</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            font-family: 'Arial', sans-serif;
+            color: #fff;
+            text-align: center;
+        }
+
+        .container {
+            text-align: center;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            opacity: 0; /* Start with hidden */
+            transform: translateY(-30px); /* Start slightly above */
+            transition: opacity 1s ease, transform 0.5s ease; /* Animate opacity and position */
+        }
+
+        #passcode {
+            margin-bottom: 20px;
+            font-size: 24px;
+            padding: 10px;
+            width: 120px;
+            text-align: center;
+            border: none;
+            border-radius: 5px;
+            background-color: #fff;
+            color: #333;
+        }
+
+        .button-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .button-container button {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            border: none;
+            border-radius: 10px;
+            background-color: #1e90ff;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .button-container button:hover {
+            background-color: #00bfff;
+            transform: scale(1.1);
+        }
+
+        .button-container button:active {
+            transform: scale(0.95);
+        }
+
+        .erase-button {
+            background-color: #e74c3c;
+        }
+
+        .erase-button:hover {
+            background-color: #c0392b;
+        }
+
+        /* Animation class to reveal the keypad */
+        .show {
+            opacity: 1; 
+            transform: translateY(0); /* Move to original position */
+        }
+
+        .history-list {
+            list-style-type: none;
+            padding: 0;
+            margin-top: 20px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        /* hide sections initially */
+        .hidden {
+            display: none;
+        }
+
+        .clear-button {
+            background-color: #f39c12;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .clear-button:hover {
+            background-color: #e67e22;
+        }
+
+        .toggle-button {
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+
+        .toggle-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="keypad-container">
+        <input type="text" id="passcode" readonly>
+        <div class="button-container">
+            <button onclick="appendDigit(1)">1</button>
+            <button onclick="appendDigit(2)">2</button>
+            <button onclick="appendDigit(3)">3</button>
+            <button onclick="appendDigit(4)">4</button>
+            <button onclick="appendDigit(5)">5</button>
+            <button onclick="appendDigit(6)">6</button>
+            <button onclick="appendDigit(7)">7</button>
+            <button onclick="appendDigit(8)">8</button>
+            <button onclick="appendDigit(9)">9</button>
+            <button onclick="appendDigit(0)">0</button>
+            <button class="erase-button" onclick="eraseDigit()">⌫</button>
+        </div>
+    </div>
+
+    <div id="adminSections" class="hidden">
+        <h2>Blocked Users</h2>
+        <ul id="blockedList" class="history-list"></ul>
+
+        <h2>User History</h2>
+        <ul id="historyList" class="history-list"></ul>
+        
+        <h2>Action History</h2>
+        <ul id="actionHistory" class="history-list"></ul>
+
+        <button class="clear-button" onclick="clearHistory()">Clear History</button>
+        <button class="toggle-button" onclick="toggleAdminSections()">Toggle Admin Info</button>
+    </div>
+
+    <script>
+        const correctPasscode = '402010';
+        const adminPasscode = '9999';
+        let blockedUsers = JSON.parse(localStorage.getItem('blockedUsers')) || [];
+        let names = JSON.parse(localStorage.getItem('names')) || [];
+        let actionHistory = JSON.parse(localStorage.getItem('actionHistory')) || [];
+
+        function appendDigit(digit) {
+            const passcodeInput = document.getElementById('passcode');
+            passcodeInput.value += digit;
+            checkPasscode();
+        }
+
+        function eraseDigit() {
+            const passcodeInput = document.getElementById('passcode');
+            passcodeInput.value = passcodeInput.value.slice(0, -1);
+        }
+
+        function checkPasscode() {
+            const passcodeInput = document.getElementById('passcode');
+            if (passcodeInput.value === correctPasscode) {
+                setTimeout(() => {
+                    const userName = prompt("Passcode correct! Please enter your name:");
+                    if (userName) {
+                        saveName(userName);
+                    }
+                }, 500);
+            } else if (passcodeInput.value === adminPasscode) {
+                setTimeout(() => {
+                    handleAdminAction();
+                }, 500);
+            }
+        }
+
+        function saveName(name) {
+            // Check if the entered name starts with any blocked username
+            const isBlocked = blockedUsers.some(blockedUser => name.startsWith(blockedUser));
+            
+            if (isBlocked) {
+                alert(`${name} is blocked and cannot join. Please choose a different username.`);
+                addToHistory(name);
+                return; // Exit the function early
+            }
+
+            // Check for exact match against blocked users list
+            if (!blockedUsers.includes(name)) {
+                names.push(name);
+                localStorage.setItem('names', JSON.stringify(names));
+                logAction(name, 'opened the application'); // Log this action
+                window.location.href = 'welcome.html'; // Redirect to welcome page
+            } else {
+                alert(`${name} is blocked and cannot join.`);
+                addToHistory(name);
+            }
+        }
+
+        function handleAdminAction() {
+            const action = prompt("Enter 'view' to see history, or 'block.username' to block a user, or 'unblock.username' to unblock a user (e.g. block.johndoe).");
+            if (action) {
+                if (action === 'view') {
+                    showAdminSections();
+                } else {
+                    const [command, user] = action.split('.');
+                    if (command === 'block') {
+                        blockUser(user);
+                    } else if (command === 'unblock') {
+                        unblockUser(user);
+                    } else {
+                        alert("Invalid command. Please try again.");
+                    }
+                }
+            }
+        }
+
+        function showAdminSections() {
+            document.getElementById('adminSections').classList.remove('hidden');
+            populateBlockedList();
+            displayActionHistory();
+        }
+
+        function toggleAdminSections() {
+            const adminSections = document.getElementById('adminSections');
+            adminSections.classList.toggle('hidden');
+        }
+
+        function addToHistory(username) {
+            if (!document.getElementById('historyList').innerText.includes(username)) {
+                document.getElementById('historyList').innerHTML += `<li>${username}</li>`;
+            }
+        }
+
+        function blockUser(username) {
+            if (!blockedUsers.includes(username)) {
+                blockedUsers.push(username);
+                localStorage.setItem('blockedUsers', JSON.stringify(blockedUsers));
+                document.getElementById('blockedList').innerHTML += `<li>${username}</li>`;
+                logAction(username, 'blocked');
+                alert(`${username} has been blocked.`);
+            } else {
+                alert(`${username} is already blocked.`);
+            }
+        }
+
+        function unblockUser(username) {
+            const index = blockedUsers.indexOf(username);
+            if (index !== -1) {
+                blockedUsers.splice(index, 1);
+                localStorage.setItem('blockedUsers', JSON.stringify(blockedUsers));
+                populateBlockedList(); // Refresh the blocked list display
+                logAction(username, 'unblocked');
+                alert(`${username} has been unblocked.`);
+            } else {
+                alert(`${username} is not blocked.`);
+            }
+        }
+
+        function logAction(username, action) {
+            const logEntry = `${username} ${action} on ${new Date().toLocaleString()}`;
+            actionHistory.push(logEntry);
+            localStorage.setItem('actionHistory', JSON.stringify(actionHistory));
+        }
+
+        function displayActionHistory() {
+            const actionList = document.getElementById('actionHistory');
+            actionList.innerHTML = ''; // Clear existing list
+            actionHistory.forEach(log => {
+                actionList.innerHTML += `<li>${log}</li>`;
+            });
+        }
+
+        function clearHistory() {
+            blockedUsers = [];
+            actionHistory = [];
+            names = [];
+            localStorage.removeItem('blockedUsers');
+            localStorage.removeItem('actionHistory');
+            localStorage.removeItem('names');
+            populateBlockedList();
+            displayActionHistory();
+            alert("All histories cleared.");
+        }
+
+        // Initialize the blocked users and action history on page load
+        window.onload = function() {
+            const keypadContainer = document.getElementById('keypad-container');
+            keypadContainer.classList.add('show'); // Add class to trigger the fade-in effect
+        }
+
+        function populateBlockedList() {
+            const blockedList = document.getElementById('blockedList');
+            blockedList.innerHTML = ''; // Clear the existing list before repopulating
+            blockedUsers.forEach(user => {
+                blockedList.innerHTML += `<li>${user}</li>`;
+            });
+        }
+    </script>
+</body>
+</html>
